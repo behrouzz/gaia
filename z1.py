@@ -1,4 +1,3 @@
-
 from gaia import DataLink
 
 #retrieval_type = 'EPOCH_PHOTOMETRY'
@@ -8,6 +7,6 @@ source_id = 30343944744320
 data_structure = 'INDIVIDUAL'
 
 
-g = DataLink(source_id, retrieval_type)
+g = DataLink(source_id=source_id, retrieval_type=retrieval_type, format='csv')
 g.download()
 #g.extract()

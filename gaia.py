@@ -16,10 +16,15 @@ from glob import glob
 
 BASE = 'https://gea.esac.esa.int/data-server/data?RETRIEVAL_TYPE='
 
+VALID_FT = ['VOTABLE', 'VOTABLE_PLAIN', 'FITS', 'CSV', 'ECSV']
+
 VALID_RT = ['EPOCH_PHOTOMETRY', 'XP_SAMPLED', 'XP_CONTINUOUS',
              'MCMC_GSPPHOT', 'MCMC_MSC',  'RVS', 'ALL']
 
 VALID_DS = ['INDIVIDUAL','COMBINED','RAW']
+
+FMT_to_EXT = {'VOTABLE':'.xml', 'VOTABLE_PLAIN':'.xml',
+              'FITS':'.fits', 'CSV':'.csv', 'ECSV':'.ecsv'}
 
 
 class DataLink:
@@ -49,13 +54,22 @@ class DataLink:
 
     Ref: https://www.cosmos.esa.int/web/gaia-users/archive/programmatic-access
     """
-    def __init__(self, source_id, retrieval_type=None, data_structure=None):
+    def __init__(self, source_id, format='fits', retrieval_type=None, data_structure=None):
         self.multi = False
+        
         self.source_id = self.__check_source_id(source_id)
+        self.format = self.__check_format(format)
         self.retrieval_type = self.__check_retrieval_type(retrieval_type)
         self.data_structure = self.__check_data_structure(data_structure)
+        
         if self.retrieval_type == 'ALL':
             self.multi = True
+
+        if self.multi:
+            self.ext = '.zip'
+        else:
+            self.ext = FMT_to_EXT[self.format]
+            
         self.url = self.datalink_url()
         
         
@@ -66,25 +80,35 @@ class DataLink:
             source_id = ','.join(source_id).replace(' ', '')
         return source_id
 
+    def __check_format(self, format):
+        format = format.upper()
+        if format not in VALID_FT:
+            raise Exception(f'format not valid! Options::\n{VALID_FT}')
+        return format
+
     def __check_retrieval_type(self, retrieval_type):
         if retrieval_type is None:
             retrieval_type = 'ALL'
-        elif retrieval_type not in VALID_RT:
-            raise Exception(f'retrieval_type not valid! Options::\n{VALID_RT}')
+        else:
+            retrieval_type = retrieval_type.upper()
+            if retrieval_type not in VALID_RT:
+                raise Exception(f'retrieval_type not valid! Options::\n{VALID_RT}')
         return retrieval_type
 
     def __check_data_structure(self, data_structure):
         if data_structure is None:
             data_structure = 'INDIVIDUAL'
-        elif data_structure not in VALID_DS:
-            raise Exception(f'data_structure not valid! Options::\n{VALID_DS}')
+        else:
+            data_structure = data_structure.upper()
+            if data_structure not in VALID_DS:
+                raise Exception(f'data_structure not valid! Options::\n{VALID_DS}')
         return data_structure
 
 
     def datalink_url(self):
         #format='fits' to be added
         url = BASE + f'{self.retrieval_type}&ID={self.source_id}&' + \
-              f'DATA_STRUCTURE={self.data_structure}&RELEASE=Gaia+DR3&FORMAT=fits'
+              f'DATA_STRUCTURE={self.data_structure}&RELEASE=Gaia+DR3&FORMAT={self.format}'
         return url
 
 
@@ -92,21 +116,21 @@ class DataLink:
 
         must_extract = False
 
-        ext = '.zip' if self.multi else '.fits'
+        #ext = '.zip' if self.multi else '.fits'
             
         if filename is None:
 
             if not os.path.isdir('data'):
                 os.makedirs('data')
 
-            # if fits
-            if ext=='.fits':
+            # if not zip
+            if self.ext != '.zip':
                 i = 1
                 while True:
-                    if os.path.exists('data/data'+str(i).zfill(2)+'.fits'):
+                    if os.path.exists('data/data'+str(i).zfill(2)+self.ext):
                         i = i + 1
                     else:
-                        filename = 'data/data'+str(i).zfill(2)+ext
+                        filename = 'data/data'+str(i).zfill(2)+self.ext
                         break
             # if zip
             else:
