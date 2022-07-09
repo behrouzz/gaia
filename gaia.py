@@ -1,8 +1,13 @@
-# https://www.cosmos.esa.int/web/gaia-users/archive/programmatic-access#CommandLine_DataLink
+"""
+Module gaia
+===========
+This module provides classes and functions to deal with Gaia Data Release 3
+Ref: https://www.cosmos.esa.int/web/gaia-users/archive/programmatic-access#CommandLine_DataLink
+"""
 
 from urllib.request import urlopen, urlretrieve
 import pandas as pd
-import json, os
+import json, os, shutil
 from zipfile import ZipFile
 from glob import glob
 
@@ -15,6 +20,7 @@ VALID_RT = ['EPOCH_PHOTOMETRY', 'XP_SAMPLED', 'XP_CONTINUOUS',
              'MCMC_GSPPHOT', 'MCMC_MSC',  'RVS', 'ALL']
 
 VALID_DS = ['INDIVIDUAL','COMBINED','RAW']
+
 
 class DataLink:
     """
@@ -48,6 +54,8 @@ class DataLink:
         self.source_id = self.__check_source_id(source_id)
         self.retrieval_type = self.__check_retrieval_type(retrieval_type)
         self.data_structure = self.__check_data_structure(data_structure)
+        if self.retrieval_type == 'ALL':
+            self.multi = True
         self.url = self.datalink_url()
         
         
@@ -82,33 +90,52 @@ class DataLink:
 
     def download(self, filename=None):
 
-        if self.multi or self.retrieval_type=='ALL':
-            ext = '.zip'
-        else:
-            ext = '.fits'
+        must_extract = False
 
-        if not os.path.isdir('data'):
-            os.makedirs('data')
+        ext = '.zip' if self.multi else '.fits'
             
         if filename is None:
+
+            if not os.path.isdir('data'):
+                os.makedirs('data')
+
+            # if fits
+            if ext=='.fits':
+                i = 1
+                while True:
+                    if os.path.exists('data/data'+str(i).zfill(2)+'.fits'):
+                        i = i + 1
+                    else:
+                        filename = 'data/data'+str(i).zfill(2)+ext
+                        break
+            # if zip
+            else:
+                must_extract = True
+                if os.path.isdir('data/tmpfol'):
+                    shutil.rmtree('data/tmpfol')
+                os.makedirs('data/tmpfol')
+                filename = 'data/tmpfol/tmpfile.zip'
+        
+        print('Downloading requested file(s)...')
+        urlretrieve(self.url, filename)
+        print('Downloaded successfully!\n')
+        
+
+        # extract zip file
+        if must_extract:
+            print('Extracting files...')
             i = 1
             while True:
-                if os.path.exists('data/data'+str(i).zfill(2)+ext):
+                if os.path.exists('data/data'+str(i).zfill(2)):
                     i = i + 1
                 else:
-                    filename = 'data/data'+str(i).zfill(2)+ext
+                    folder = 'data/data'+str(i).zfill(2)
+                    os.makedirs(folder)
                     break
-        
-        self.filename = filename
-        urlretrieve(self.url, filename)
-
-
-    def extract(self, folder='data'):
-        
-        if self.filename[-4:]=='.zip':
-            with ZipFile(self.filename, 'r') as zip:
+            with ZipFile(filename, 'r') as zip:
                 zip.extractall(folder)
-            self.files = [i for i in glob(folder+'/*') if i[-4:]!='.zip']
-        else:
-            print('Not a zip file!')
+            shutil.rmtree('data/tmpfol')
+            self.files = glob(folder+'/*')
+            print('Extracted successfully!')
+
 
