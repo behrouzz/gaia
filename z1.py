@@ -9,4 +9,4 @@ data_structure = 'INDIVIDUAL'
 
 g = DataLink(source_id=source_id, retrieval_type=retrieval_type, format='csv')
 g.download()
-#g.extract()
+

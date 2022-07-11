@@ -10,7 +10,7 @@ import pandas as pd
 import json, os, shutil
 from zipfile import ZipFile
 from glob import glob
-
+from tap import get_source
 
 
 
@@ -34,9 +34,43 @@ def sql2df(scritp):
 
 
 class GaiaObject:
-    def __init__(self, source_id):
-        self.source_id = source_id
+    def __init__(self, source_id, adr_csv=None):
+        
+        self.source_id = str(source_id)
+        self.adr = None
+        self.files = None
 
+        self.has = {
+            'EPOCH_PHOTOMETRY': False,
+            'RVS': False,
+            'XP_CONTINUOUS': False,
+            'XP_SAMPLED': False,
+            'MCMC_GSPPHOT': False,
+            'MCMC_MSC': False
+            }
+        
+        if adr_csv is not None:
+            self.files = [i for i in glob(adr_csv + '/*.csv') if self.source_id in i]
+            self.adr = adr_csv
+
+        self.__update_has()
+
+    def __update_has(self):
+        if self.files is not None:
+            for f in self.files:
+                for k in self.has.keys():
+                    if k in f:
+                        self.has[k] = True
+
+
+    def download(self):
+        
+        dc, meta = get_source(self.source_id)
+        
+        if not os.path.isdir('tmp'):
+            os.makedirs('tmp')
+
+        # to be continued...
 
 class DataLink:
     """
