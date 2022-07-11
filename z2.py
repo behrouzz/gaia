@@ -5,4 +5,7 @@ adr_csv = 'data/data01'
 
 obj = GaiaObject(source_id=source_id)#, adr_csv=adr_csv)
 
-obj.download()
+#obj.download(key_param=False)
+
+
+#obj.read_ancillary('data/30343944744320')

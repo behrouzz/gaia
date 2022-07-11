@@ -12,6 +12,7 @@ from zipfile import ZipFile
 from glob import glob
 from tap import get_source
 from phot_spec import *
+from utils import get_filename
 
 
 
@@ -33,17 +34,13 @@ ancils = ['has_epoch_photometry', 'has_epoch_rv', 'has_rvs',
 
 
 
-def sql2df(scritp):
-    # should copy from tap.py
-    return None
-
-
 class GaiaObject:
     def __init__(self, source_id, adr_csv=None):
         
         self.source_id = str(source_id)
         self.adr = None
         self.files = None
+        self.key_param = None
 
         self.has = {
             'EPOCH_PHOTOMETRY': False,
@@ -76,47 +73,42 @@ class GaiaObject:
                           will be downloaded.
         ancillary (bool): If True, all the ancillary data will be downloaded.
         """
-        # if key_param
-        dc, meta = get_source(self.source_id)
-        self.key_param = {'data':dc, 'meta':meta}
-
-        dc_anc = {k:v for (k, v) in dc.items() if k in ancils}
+        if key_param:
+            
+            dc, meta = get_source(self.source_id)
+            self.key_param = {'data':dc, 'meta':meta}
 
         if ancillary:
             
-            if self.files is not None:
-                self.read_ancillary_files()
-            else:
-                if os.path.isdir('tmp'):
-                    shutil.rmtree('tmp')
-                os.makedirs('tmp')
-                url = BASE + f'ALL&ID={self.source_id}&' + \
-                      'DATA_STRUCTURE=INDIVIDUAL&RELEASE=Gaia+DR3&FORMAT=csv'
-                if sum([i for i in dc_anc.values()]) > 1:
-                    filename = 'tmp/tmpfile.zip'
-                    #urlretrieve(url, filename)
-                elif sum([i for i in dc_anc.values()]) == 1:
-                    avail_anc = [k for (k, v) in dc_anc.items() if v][0][4:].upper()
-                    filename = f'tmp/{avail_anc}-Gaia DR3 {self.source_id}.csv'
-                else: # zero
-                    raise Exception('No ancillary data available')
-                urlretrieve(url, filename)
-                if filename[-3:]=='zip':
-                    with ZipFile(filename, 'r') as zip:
-                        zip.extractall('tmp')
-                    self.read_ancillary_files(adr='tmp')
-                    shutil.rmtree('tmp')
+            folder = f'data/{self.source_id}'
+            
+            if os.path.isdir(folder):
+                shutil.rmtree(folder)
+            os.makedirs(folder)
+            
+            url = BASE + f'ALL&ID={self.source_id}&' + \
+                  'DATA_STRUCTURE=INDIVIDUAL&RELEASE=Gaia+DR3&FORMAT=csv'
+            
+            filename = folder + '/' + get_filename(url)
+            urlretrieve(url, filename)
+            
+            if filename[-3:]=='zip':
+                with ZipFile(filename, 'r') as zip:
+                    zip.extractall(folder)
+                self.read_ancillary(adr=folder)
+                os.remove(filename)
 
-        # to be continued...
 
-    def read_ancillary_files(self, adr=None):
+    def read_ancillary(self, adr=None):
 
         if adr is not None:
             self.files = [i for i in glob(adr + '/*.csv') if self.source_id in i]
             self.adr = adr
             self.__update_has()
-        else:
+        elif self.adr is not None:
             adr = self.adr
+        else:
+            raise Exception('No address provided!')
 
         if self.has['EPOCH_PHOTOMETRY']:
             self.ep_phot = ep_phot(
