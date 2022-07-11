@@ -1,7 +1,7 @@
 import pandas as pd
 from hypatie.time import jd_to_datetime
 
-file = 'data/data01\\EPOCH_PHOTOMETRY-Gaia DR3 30343944744320.csv'
+#file = 'data/data01\\EPOCH_PHOTOMETRY-Gaia DR3 30343944744320.csv'
 
 def ep_phot(file, to_datetime=False):
     """
@@ -51,7 +51,7 @@ def xp_samp(file):
 
 #============================================================
 
-file = 'data/data01\\RVS-Gaia DR3 30343944744320.csv'
+#file = 'data/data01\\RVS-Gaia DR3 30343944744320.csv'
 
 def rvs(file):
     """
@@ -77,13 +77,37 @@ https://gaiaxpy.readthedocs.io/en/latest/description.html#general-description
 2) external or absolute system : W nm-1 m-2
 """
 
-file = 'data/data01\\XP_CONTINUOUS-Gaia DR3 30343944744320.csv'
+#file = 'data/data01\\XP_CONTINUOUS-Gaia DR3 30343944744320.csv'
 
 # if gaiaxpy & astropy installed:
-import numpy as np
-from gaiaxpy import calibrate
+##import numpy as np
+##from gaiaxpy import calibrate
+##
+##def xp_cont(file, sampling=None, save_file=False):
+##    """
+##    mean BP and RP spectra based on the continuous representation in
+##    basis functions
+##
+##    Wavelength: nm
+##    Flux: W / (m2 nm)
+##
+##    has_xp_continuous = 't'
+##    """
+##    
+##    calibrated_df, sampling = calibrate(
+##        file, sampling=sampling, save_file=save_file)
+##    
+##    df = pd.DataFrame({'wavelength': sampling,
+##                       'flux': calibrated_df.iloc[0]['flux'],
+##                       'flux_error': calibrated_df.iloc[0]['flux_error']})
+##    return df
+                             
 
-def xp_cont(file, sampling=None, save_file=False):
+#df = xp_cont(file, sampling=np.linspace(400, 900, 600))
+
+#================================================================
+
+def xp_cont(file):
     """
     mean BP and RP spectra based on the continuous representation in
     basis functions
@@ -93,16 +117,4 @@ def xp_cont(file, sampling=None, save_file=False):
 
     has_xp_continuous = 't'
     """
-    
-    calibrated_df, sampling = calibrate(
-        file, sampling=sampling, save_file=save_file)
-    
-    df = pd.DataFrame({'wavelength': sampling,
-                       'flux': calibrated_df.iloc[0]['flux'],
-                       'flux_error': calibrated_df.iloc[0]['flux_error']})
-    return df
-                             
-
-#df = xp_cont(file, sampling=np.linspace(400, 900, 600))
-
-
+    return pd.read_csv(file)

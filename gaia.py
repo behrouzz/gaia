@@ -11,6 +11,7 @@ import json, os, shutil
 from zipfile import ZipFile
 from glob import glob
 from tap import get_source
+from phot_spec import *
 
 
 
@@ -25,6 +26,10 @@ VALID_DS = ['INDIVIDUAL','COMBINED','RAW']
 
 FMT_to_EXT = {'VOTABLE':'.xml', 'VOTABLE_PLAIN':'.xml',
               'FITS':'.fits', 'CSV':'.csv', 'ECSV':'.ecsv'}
+
+ancils = ['has_epoch_photometry', 'has_epoch_rv', 'has_rvs',
+          'has_xp_continuous', 'has_xp_sampled',
+          'has_mcmc_gspphot', 'has_mcmc_msc']
 
 
 
@@ -42,6 +47,7 @@ class GaiaObject:
 
         self.has = {
             'EPOCH_PHOTOMETRY': False,
+            #'EPOCH_RV': False,
             'RVS': False,
             'XP_CONTINUOUS': False,
             'XP_SAMPLED': False,
@@ -52,8 +58,9 @@ class GaiaObject:
         if adr_csv is not None:
             self.files = [i for i in glob(adr_csv + '/*.csv') if self.source_id in i]
             self.adr = adr_csv
+            self.__update_has()
 
-        self.__update_has()
+        
 
     def __update_has(self):
         if self.files is not None:
@@ -63,14 +70,72 @@ class GaiaObject:
                         self.has[k] = True
 
 
-    def download(self):
-        
+    def download(self, key_param=True, ancillary=True):
+        """
+        key_param (bool): If True, the key parameters from gaia_source table
+                          will be downloaded.
+        ancillary (bool): If True, all the ancillary data will be downloaded.
+        """
+        # if key_param
         dc, meta = get_source(self.source_id)
-        
-        if not os.path.isdir('tmp'):
-            os.makedirs('tmp')
+        self.key_param = {'data':dc, 'meta':meta}
+
+        dc_anc = {k:v for (k, v) in dc.items() if k in ancils}
+
+        if ancillary:
+            
+            if self.files is not None:
+                self.read_ancillary_files()
+            else:
+                if os.path.isdir('tmp'):
+                    shutil.rmtree('tmp')
+                os.makedirs('tmp')
+                url = BASE + f'ALL&ID={self.source_id}&' + \
+                      'DATA_STRUCTURE=INDIVIDUAL&RELEASE=Gaia+DR3&FORMAT=csv'
+                if sum([i for i in dc_anc.values()]) > 1:
+                    filename = 'tmp/tmpfile.zip'
+                    #urlretrieve(url, filename)
+                elif sum([i for i in dc_anc.values()]) == 1:
+                    avail_anc = [k for (k, v) in dc_anc.items() if v][0][4:].upper()
+                    filename = f'tmp/{avail_anc}-Gaia DR3 {self.source_id}.csv'
+                else: # zero
+                    raise Exception('No ancillary data available')
+                urlretrieve(url, filename)
+                if filename[-3:]=='zip':
+                    with ZipFile(filename, 'r') as zip:
+                        zip.extractall('tmp')
+                    self.read_ancillary_files(adr='tmp')
+                    shutil.rmtree('tmp')
 
         # to be continued...
+
+    def read_ancillary_files(self, adr=None):
+
+        if adr is not None:
+            self.files = [i for i in glob(adr + '/*.csv') if self.source_id in i]
+            self.adr = adr
+            self.__update_has()
+        else:
+            adr = self.adr
+
+        if self.has['EPOCH_PHOTOMETRY']:
+            self.ep_phot = ep_phot(
+                file=adr+f'/EPOCH_PHOTOMETRY-Gaia DR3 {self.source_id}.csv',
+                to_datetime=True)
+            
+        if self.has['RVS']:
+            self.rvs = rvs(adr+f'/RVS-Gaia DR3 {self.source_id}.csv')
+
+        if self.has['XP_CONTINUOUS']:
+            self.xp_cont = xp_cont(adr+f'/XP_CONTINUOUS-Gaia DR3 {self.source_id}.csv')
+
+        if self.has['XP_SAMPLED']:
+            self.xp_samp = xp_samp(adr+f'/XP_SAMPLED-Gaia DR3 {self.source_id}.csv')
+
+        # MCMC_GSPPHOT and MCMC_MSC will be added in the future
+
+
+
 
 class DataLink:
     """

@@ -90,5 +90,5 @@ def get_source(source_id, full=False, server='gaia'):
     dc = data.iloc[0].to_dict()
     return dc, meta
 
-#dc, meta = get_source(source_id=30343944744320)
+dc, meta = get_source(source_id=30343944744320)
 
