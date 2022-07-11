@@ -27,6 +27,17 @@ FMT_to_EXT = {'VOTABLE':'.xml', 'VOTABLE_PLAIN':'.xml',
               'FITS':'.fits', 'CSV':'.csv', 'ECSV':'.ecsv'}
 
 
+
+def sql2df(scritp):
+    # should copy from tap.py
+    return None
+
+
+class GaiaObject:
+    def __init__(self, source_id):
+        self.source_id = source_id
+
+
 class DataLink:
     """
     Gaia DataLink class
