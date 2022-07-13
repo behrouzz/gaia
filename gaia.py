@@ -25,9 +25,6 @@ VALID_RT = ['EPOCH_PHOTOMETRY', 'XP_SAMPLED', 'XP_CONTINUOUS',
 
 VALID_DS = ['INDIVIDUAL','COMBINED','RAW']
 
-FMT_to_EXT = {'VOTABLE':'.xml', 'VOTABLE_PLAIN':'.xml',
-              'FITS':'.fits', 'CSV':'.csv', 'ECSV':'.ecsv'}
-
 ancils = ['has_epoch_photometry', 'has_epoch_rv', 'has_rvs',
           'has_xp_continuous', 'has_xp_sampled',
           'has_mcmc_gspphot', 'has_mcmc_msc']
@@ -148,29 +145,24 @@ class DataLink:
     -----------
     multi (bool) : if the request is for multiple souces
     url (str) : the url of the file to download
+    sources (lis): list of souce IDs
+    files (list): list of downloaded files
 
     METHODS:
     --------
     datalink_url : return url of the file to download
     download : download the requested file
+    get_objects : Create list of 'GaiaObject's
 
     Ref: https://www.cosmos.esa.int/web/gaia-users/archive/programmatic-access
     """
-    def __init__(self, source_id, format='fits', retrieval_type=None, data_structure=None):
+    def __init__(self, source_id, format='csv', retrieval_type=None, data_structure=None):
         self.multi = False
         
         self.source_id = self.__check_source_id(source_id)
         self.format = self.__check_format(format)
         self.retrieval_type = self.__check_retrieval_type(retrieval_type)
         self.data_structure = self.__check_data_structure(data_structure)
-        
-        if self.retrieval_type == 'ALL':
-            self.multi = True
-
-        if self.multi:
-            self.ext = '.zip'
-        else:
-            self.ext = FMT_to_EXT[self.format]
             
         self.url = self.datalink_url()
         
@@ -178,8 +170,10 @@ class DataLink:
     def __check_source_id(self, source_id):
         if isinstance(source_id, list):
             self.multi = True
-            source_id = [str(i) for i in source_id]
-            source_id = ','.join(source_id).replace(' ', '')
+            self.sources = [str(i) for i in source_id]
+            source_id = ','.join(self.sources).replace(' ', '')
+        else:
+            self.sources = [str(source_id)]
         return source_id
 
     def __check_format(self, format):
@@ -214,54 +208,54 @@ class DataLink:
         return url
 
 
-    def download(self, filename=None):
+    def download(self):
 
-        must_extract = False
-
-        #ext = '.zip' if self.multi else '.fits'
+        folder = f'data/{self.source_id}'
             
-        if filename is None:
+        if os.path.isdir(folder):
+            shutil.rmtree(folder)
+        os.makedirs(folder)
 
-            if not os.path.isdir('data'):
-                os.makedirs('data')
-
-            # if not zip
-            if self.ext != '.zip':
-                i = 1
-                while True:
-                    if os.path.exists('data/data'+str(i).zfill(2)+self.ext):
-                        i = i + 1
-                    else:
-                        filename = 'data/data'+str(i).zfill(2)+self.ext
-                        break
-            # if zip
-            else:
-                must_extract = True
-                if os.path.isdir('data/tmpfol'):
-                    shutil.rmtree('data/tmpfol')
-                os.makedirs('data/tmpfol')
-                filename = 'data/tmpfol/tmpfile.zip'
-        
-        print('Downloading requested file(s)...')
+        filename = folder + '/' + get_filename(self.url)
         urlretrieve(self.url, filename)
-        print('Downloaded successfully!\n')
-        
 
-        # extract zip file
-        if must_extract:
-            print('Extracting files...')
-            i = 1
-            while True:
-                if os.path.exists('data/data'+str(i).zfill(2)):
-                    i = i + 1
-                else:
-                    folder = 'data/data'+str(i).zfill(2)
-                    os.makedirs(folder)
-                    break
+        if filename[-3:]=='zip':
             with ZipFile(filename, 'r') as zip:
                 zip.extractall(folder)
-            shutil.rmtree('data/tmpfol')
-            self.files = glob(folder+'/*')
-            print('Extracted successfully!')
+            os.remove(filename)
+
+        self.files = glob(folder+'/*')
+        
+        if self.multi:
+            for s in self.sources:
+                s_fol = 'data/' + s
+                if os.path.isdir(s_fol):
+                    shutil.rmtree(s_fol)
+                os.makedirs(s_fol)
+                for f in self.files:
+                    end_file = os.path.basename(os.path.normpath(f))
+                    if s in end_file:
+                        shutil.copyfile(f, s_fol+'/'+end_file)
+            shutil.rmtree(folder)
+            self.files = []
+            for s in self.sources:
+                for f in glob(f'data/{s}/*'):
+                    self.files.append(f)
+
+
+    def get_objects(self):
+        """
+        Create list of 'GaiaObject's
+        """
+        objects = []
+        if self.files is not None:
+            if len(self.files)>0:
+                for s in self.sources:
+                    obj = GaiaObject(source_id=s)
+                    obj.read_ancillary(f'data/{s}')
+                    objects.append(obj)
+        return objects
+
+                
 
 
